@@ -7,13 +7,18 @@ from langchain_community.document_loaders import PyPDFLoader
 # Configure page
 st.set_page_config(page_title="Quiz Generator", page_icon="📚")
 
-# Initialize Gemini - Simplified API key handling
+# Initialize Gemini with fallback
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except Exception as e:
+    # Fallback to environment variable or hardcoded key (for development only)
+    GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyDLupuG-brZ4r7bTKuq66reKPPoUWi2_pM')
+
+try:
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-1.5-pro')
 except Exception as e:
-    st.error("Error loading API key from secrets. Please check your .streamlit/secrets.toml file.")
+    st.error(f"Error initializing Gemini: {str(e)}")
     st.stop()
 
 # Initialize session state
