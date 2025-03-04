@@ -7,16 +7,14 @@ from langchain_community.document_loaders import PyPDFLoader
 # Configure page
 st.set_page_config(page_title="Quiz Generator", page_icon="📚")
 
-# Initialize Gemini
+# Initialize Gemini - Simplified API key handling
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-pro')
 except Exception as e:
-    st.error("Failed to load API key from secrets. Please check your .streamlit/secrets.toml file.")
+    st.error("Error loading API key from secrets. Please check your .streamlit/secrets.toml file.")
     st.stop()
-
-genai.configure(api_key=GOOGLE_API_KEY)
-
-model = genai.GenerativeModel('gemini-1.5-pro')
 
 # Initialize session state
 if 'ultima_resposta_correta' not in st.session_state:
@@ -33,15 +31,19 @@ if 'perguntas_anteriores' not in st.session_state:
     st.session_state.perguntas_anteriores = []
 
 def carregar_documento():
-    caminho = os.path.join('data', 'Linha do Tempo.pdf')
-    loader = PyPDFLoader(caminho)
-    lista_documentos = loader.load()
-    
-    documento = ''
-    for doc in lista_documentos:
-        documento += doc.page_content
-    
-    st.session_state.documento = documento
+    try:
+        caminho = os.path.join(os.path.dirname(__file__), 'data', 'Linha do Tempo.pdf')
+        loader = PyPDFLoader(caminho)
+        lista_documentos = loader.load()
+        
+        documento = ''
+        for doc in lista_documentos:
+            documento += doc.page_content
+        
+        st.session_state.documento = documento
+    except Exception as e:
+        st.error(f"Error loading document: {str(e)}")
+        st.stop()
 
 def gerar_prompt(informacoes, ultima_correta):
     perguntas_anteriores = "\n".join(st.session_state.perguntas_anteriores)
