@@ -3,12 +3,19 @@ import os
 import google.generativeai as genai
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import PyPDFLoader
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure page
 st.set_page_config(page_title="Quiz Generator", page_icon="📚")
 
 # Initialize Gemini
-GOOGLE_API_KEY = 'AIzaSyDLupuG-brZ4r7bTKuq66reKPPoUWi2_pM'
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+if not GOOGLE_API_KEY:
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')
 
@@ -27,7 +34,7 @@ if 'perguntas_anteriores' not in st.session_state:
     st.session_state.perguntas_anteriores = []
 
 def carregar_documento():
-    caminho = r'C:\Users\adail\Documents\Curso Python Asimov\quiz-generator\Linha do Tempo.pdf'
+    caminho = os.path.join('data', 'Linha do Tempo.pdf')
     loader = PyPDFLoader(caminho)
     lista_documentos = loader.load()
     
