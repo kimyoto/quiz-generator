@@ -23,6 +23,8 @@ if 'aguardando_resposta' not in st.session_state:
     st.session_state.aguardando_resposta = False
 if 'documento' not in st.session_state:
     st.session_state.documento = ''
+if 'perguntas_anteriores' not in st.session_state:
+    st.session_state.perguntas_anteriores = []
 
 def carregar_documento():
     caminho = r'C:\Users\adail\Documents\Curso Python Asimov\quiz-generator\Linha do Tempo.pdf'
@@ -36,16 +38,21 @@ def carregar_documento():
     st.session_state.documento = documento
 
 def gerar_prompt(informacoes, ultima_correta):
+    perguntas_anteriores = "\n".join(st.session_state.perguntas_anteriores)
     return f"""Você é um assistente que gera questões de múltipla escolha. 
 Use as seguintes informações como base para gerar as questões:
 {informacoes}
+
+IMPORTANTE: NÃO gere nenhuma das perguntas abaixo que já foram feitas anteriormente:
+{perguntas_anteriores}
 
 Regras OBRIGATÓRIAS para gerar as questões:
 1. Gere apenas UMA pergunta por vez
 2. A questão DEVE ter 5 alternativas: A, B, C, D e E
 3. A alternativa correta NÃO pode ser {ultima_correta} (que foi a resposta da última questão)
-4. Você DEVE terminar SEMPRE com a resposta correta entre parênteses. Exemplo: (A) ou (B) ou (C)
-5. Formate a questão assim:
+4. A pergunta DEVE ser diferente das perguntas anteriores listadas acima
+5. Você DEVE terminar SEMPRE com a resposta correta entre parênteses. Exemplo: (A) ou (B) ou (C)
+6. Formate a questão assim:
 
 PERGUNTA: [texto da pergunta]
 
@@ -57,6 +64,39 @@ E) [alternativa E]
 
 ([letra correta])
 """
+
+def formatar_questao(texto):
+    """Formata o texto da questão para melhor visualização"""
+    linhas = texto.split('\n')
+    resultado = []
+    
+    for linha in linhas:
+        if linha.startswith(('A)', 'B)', 'C)', 'D)', 'E)')):
+            resultado.append(f"\n{linha}\n")
+        else:
+            resultado.append(linha)
+    
+    return '\n'.join(resultado)
+
+def reset_questao():
+    """Reseta o estado da questão atual"""
+    st.session_state.questao_atual = None
+    st.session_state.resposta_correta_atual = None
+    st.session_state.aguardando_resposta = False
+    if 'resposta_radio' in st.session_state:
+        del st.session_state.resposta_radio
+    if 'resposta_verificada' in st.session_state:
+        del st.session_state.resposta_verificada
+    if 'resposta_selecionada' in st.session_state:
+        del st.session_state.resposta_selecionada
+
+def extrair_pergunta(texto):
+    """Extrai apenas a pergunta do texto completo"""
+    linhas = texto.split('\n')
+    for linha in linhas:
+        if linha.startswith('PERGUNTA:'):
+            return linha.replace('PERGUNTA:', '').strip()
+    return None
 
 def fazer_pergunta():
     prompt = gerar_prompt(st.session_state.documento, 
@@ -70,8 +110,13 @@ def fazer_pergunta():
         import re
         match = re.search(r'\(([A-E])\)$', conteudo)
         if match:
+            # Extrair e salvar apenas a pergunta
+            pergunta = extrair_pergunta(conteudo)
+            if pergunta and pergunta not in st.session_state.perguntas_anteriores:
+                st.session_state.perguntas_anteriores.append(pergunta)
+            
             st.session_state.ultima_resposta_correta = match.group(1)
-            st.session_state.questao_atual = conteudo.replace(f"({match.group(1)})", "")
+            st.session_state.questao_atual = formatar_questao(conteudo.replace(f"({match.group(1)})", ""))
             st.session_state.resposta_correta_atual = match.group(1)
             st.session_state.aguardando_resposta = True
             return True
@@ -82,16 +127,22 @@ def fazer_pergunta():
 def main():
     st.title("📚 Quiz Generator")
     st.markdown("---")
+    
+    # Exibir contador de perguntas feitas
+    if st.session_state.perguntas_anteriores:
+        st.sidebar.markdown(f"### Perguntas feitas: {len(st.session_state.perguntas_anteriores)}")
+        with st.sidebar.expander("Ver perguntas anteriores"):
+            for i, pergunta in enumerate(st.session_state.perguntas_anteriores, 1):
+                st.write(f"{i}. {pergunta}")
 
     # Carregar documento se ainda não foi carregado
     if not st.session_state.documento:
         carregar_documento()
 
     # Botão para nova pergunta
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if st.button("Nova Pergunta", use_container_width=True):
-            fazer_pergunta()
+    if st.button("Nova Pergunta", use_container_width=True):
+        reset_questao()
+        fazer_pergunta()
 
     # Exibir questão atual
     if st.session_state.questao_atual:
@@ -99,9 +150,13 @@ def main():
         st.write(st.session_state.questao_atual)
         
         # Input para resposta
-        resposta = st.radio("Selecione sua resposta:", 
-                           options=['A', 'B', 'C', 'D', 'E'],
-                           horizontal=True)
+        resposta = st.radio(
+            "Selecione sua resposta:", 
+            options=['A', 'B', 'C', 'D', 'E'],
+            horizontal=True,
+            key="resposta_radio",
+            index=None
+        )
         
         # Botão para verificar resposta
         if st.button("Verificar Resposta", use_container_width=True):
