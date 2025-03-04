@@ -3,20 +3,19 @@ import os
 import google.generativeai as genai
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import PyPDFLoader
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Configure page
 st.set_page_config(page_title="Quiz Generator", page_icon="📚")
 
 # Initialize Gemini
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-if not GOOGLE_API_KEY:
+try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except Exception as e:
+    st.error("Failed to load API key from secrets. Please check your .streamlit/secrets.toml file.")
+    st.stop()
 
 genai.configure(api_key=GOOGLE_API_KEY)
+
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # Initialize session state
